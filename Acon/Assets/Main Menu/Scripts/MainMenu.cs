@@ -8,8 +8,8 @@ using System;
 public class MainMenu : MonoBehaviourPunCallbacks
 {
     public byte MaxPlayers = 4;
-
     public MenuPage[] Pages;
+    public GameObject PlayPage;
 
     private void Awake()
     {
@@ -19,6 +19,19 @@ public class MainMenu : MonoBehaviourPunCallbacks
         }
 
         PhotonNetwork.AutomaticallySyncScene = true;
+    }
+
+    public void Connect()
+    {
+        if (!PhotonNetwork.IsConnected)
+        {
+            PhotonNetwork.ConnectUsingSettings();
+            PhotonNetwork.GameVersion = "0.0.0.1";
+        }
+        else
+        {
+            PhotonNetwork.JoinRandomRoom();
+        }
     }
 
     public void Quit()
@@ -36,13 +49,15 @@ public class MainMenu : MonoBehaviourPunCallbacks
     public override void OnDisconnected(DisconnectCause cause)
     {
         Debug.Log($"Disconnected. Reason: {cause}");
+
+        this.DisableAllPages();
+        this.PlayPage.SetActive(true);
     }
 
     public override void OnJoinRandomFailed(short returnCode, string message)
     {
         Debug.Log("No random room available. Creating a new room.");
 
-        // #Critical: we failed to join a random room, maybe none exists or they are all full. No worries, we create a new room.
         PhotonNetwork.CreateRoom(null, new RoomOptions() { MaxPlayers = this.MaxPlayers });
     }
 
@@ -51,16 +66,11 @@ public class MainMenu : MonoBehaviourPunCallbacks
         Debug.Log("Joined room successfully.");
     }
 
-    private void Connect()
+    private void DisableAllPages()
     {
-        if (!PhotonNetwork.IsConnected)
+        foreach (var page in this.Pages)
         {
-            PhotonNetwork.ConnectUsingSettings();
-            PhotonNetwork.GameVersion = "0.0.0.1";
-        }
-        else
-        {
-            PhotonNetwork.JoinRandomRoom();
+            page.Page.SetActive(false);
         }
     }
 }
