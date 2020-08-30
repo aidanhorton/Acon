@@ -1,24 +1,24 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.UI;
 
-public class MainMenu : MonoBehaviour
+using Photon.Pun;
+using Photon.Realtime;
+using System;
+
+public class MainMenu : MonoBehaviourPunCallbacks
 {
-    public GameObject HomePage;
-    public GameObject PlayPage;
-    public GameObject OptionsPage;
+    public byte MaxPlayers = 4;
 
-    public void Start()
-    {
-        this.HomePage.SetActive(true);
-        this.PlayPage.SetActive(false);
-        this.OptionsPage.SetActive(false);
-    }
+    public MenuPage[] Pages;
 
-    public void Play()
+    private void Awake()
     {
-        this.HomePage.SetActive(false);
-        this.PlayPage.SetActive(true);
+        foreach (var page in this.Pages)
+        {
+            page.SetupOnClick();
+        }
+
+        PhotonNetwork.AutomaticallySyncScene = true;
     }
 
     public void Quit()
@@ -26,9 +26,78 @@ public class MainMenu : MonoBehaviour
         Application.Quit();
     }
 
-    public void OpenOptions()
+    public override void OnConnectedToMaster()
     {
-        this.HomePage.SetActive(false);
-        this.OptionsPage.SetActive(true);
+        Debug.Log("Connected to Master.");
+
+        PhotonNetwork.JoinRandomRoom();
+    }
+
+    public override void OnDisconnected(DisconnectCause cause)
+    {
+        Debug.Log($"Disconnected. Reason: {cause}");
+    }
+
+    public override void OnJoinRandomFailed(short returnCode, string message)
+    {
+        Debug.Log("No random room available. Creating a new room.");
+
+        // #Critical: we failed to join a random room, maybe none exists or they are all full. No worries, we create a new room.
+        PhotonNetwork.CreateRoom(null, new RoomOptions() { MaxPlayers = this.MaxPlayers });
+    }
+
+    public override void OnJoinedRoom()
+    {
+        Debug.Log("Joined room successfully.");
+    }
+
+    private void Connect()
+    {
+        if (!PhotonNetwork.IsConnected)
+        {
+            PhotonNetwork.ConnectUsingSettings();
+            PhotonNetwork.GameVersion = "0.0.0.1";
+        }
+        else
+        {
+            PhotonNetwork.JoinRandomRoom();
+        }
+    }
+}
+
+[Serializable]
+public class MenuPage
+{
+    public GameObject Page;
+    public MenuButton[] Buttons;   
+    
+    public void SetupOnClick()
+    {
+        foreach (var button in this.Buttons)
+        {
+            button.SetupListener();
+            button.OnClick += this.ButtonPressed;
+        }
+    }
+
+    private void ButtonPressed(GameObject pageToOpen)
+    {
+        pageToOpen.SetActive(true);
+        this.Page.SetActive(false);
+    }
+}
+
+[Serializable]
+public class MenuButton
+{
+    public delegate void ButtonPress(GameObject pageToOpen);
+
+    public Button Button;
+    public event ButtonPress OnClick;
+    public GameObject PageToOpen;
+
+    public void SetupListener()
+    {
+        this.Button.onClick.AddListener(() => OnClick?.Invoke(this.PageToOpen));
     }
 }
